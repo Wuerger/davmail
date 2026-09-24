@@ -32,17 +32,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get DavMail version
+        id: davmail_version
+        run: |
+          VERSION=$(grep '<property name="version"' build.xml | sed -E 's/.*value="([^"]+)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
+            type=sha,format=short,prefix=sha-
             type=ref,event=branch
             type=ref,event=tag
-            type=sha,format=short,prefix=sha-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ steps.davmail_version.outputs.version }}-wuerger,enable=${{ github.ref == 'refs/heads/master' }}
             type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
