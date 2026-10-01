@@ -114,6 +114,7 @@ public class GraphField {
 
         addFieldMap("instancetype", DistinguishedPropertySetType.PublicStrings, "urn:schemas:calendar:instancetype", PropertyType.Integer);
 
+        addFieldMap("iCalUid");
         addFieldMap("calendaruid", DistinguishedPropertySetType.PublicStrings, "urn:schemas:calendar:uid", PropertyType.String);
 
         addFieldMap("isrecurring", DistinguishedPropertySetType.Appointment, 0x8223, PropertyType.Boolean); // PidLidRecurring
@@ -146,8 +147,10 @@ public class GraphField {
         addFieldMap("cancelledOccurrences");
         addFieldMap("hasAttachments");
         addFieldMap("isOnlineMeeting");
+        addFieldMap("onlineMeeting");
         addFieldMap("isOrganizer");
         addFieldMap("location");
+        addFieldMap("locations"); // locations array
         addFieldMap("organizer");
         addFieldMap("originalStart");
         addFieldMap("recurrence");
