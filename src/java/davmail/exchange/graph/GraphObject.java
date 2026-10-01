@@ -98,7 +98,7 @@ public class GraphObject {
                 // Iterates extended properties to find a matching value
                 for (int i = 0; i < singleValueExtendedProperties.length(); i++) {
                     JSONObject singleValueObject = singleValueExtendedProperties.optJSONObject(i);
-                    if (singleValueObject != null && key.equals(singleValueObject.optString("id"))) {
+                    if (singleValueObject != null && key.equalsIgnoreCase(singleValueObject.optString("id"))) {
                         value = singleValueObject.optString("value");
                     }
                 }

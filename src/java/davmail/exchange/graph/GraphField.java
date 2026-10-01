@@ -378,11 +378,7 @@ public class GraphField {
         this.extended = true;
 
         this.alias = alias;
-        if (intPropertyTag > 0xFFFF) {
-            this.propertyTag = String.format("0x%08X", intPropertyTag);
-        } else {
-            this.propertyTag = String.format("0x%04X", intPropertyTag);
-        }
+        this.propertyTag = "0x" + Integer.toHexString(intPropertyTag);
         this.propertyType = propertyType;
         this.graphId = buildGraphId();
     }

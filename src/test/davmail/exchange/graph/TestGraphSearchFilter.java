@@ -55,28 +55,28 @@ public class TestGraphSearchFilter extends TestCase {
         ExchangeSession.Condition condition = session.contains("to", "recipient@example.com");
         StringBuilder buffer = new StringBuilder();
         condition.appendTo(buffer);
-        assertEquals("singleValueExtendedProperties/Any(ep: ep/id eq 'String 0x0E04' and contains(ep/value,'recipient@example.com'))", buffer.toString());
+        assertEquals("singleValueExtendedProperties/Any(ep: ep/id eq 'String 0xe04' and contains(ep/value,'recipient@example.com'))", buffer.toString());
     }
 
     public void testCcFilterContains() {
         ExchangeSession.Condition condition = session.contains("cc", "cc@example.com");
         StringBuilder buffer = new StringBuilder();
         condition.appendTo(buffer);
-        assertEquals("singleValueExtendedProperties/Any(ep: ep/id eq 'String 0x0E03' and contains(ep/value,'cc@example.com'))", buffer.toString());
+        assertEquals("singleValueExtendedProperties/Any(ep: ep/id eq 'String 0xe03' and contains(ep/value,'cc@example.com'))", buffer.toString());
     }
 
     public void testBccFilterContains() {
         ExchangeSession.Condition condition = session.contains("bcc", "bcc@example.com");
         StringBuilder buffer = new StringBuilder();
         condition.appendTo(buffer);
-        assertEquals("singleValueExtendedProperties/Any(ep: ep/id eq 'String 0x0E02' and contains(ep/value,'bcc@example.com'))", buffer.toString());
+        assertEquals("singleValueExtendedProperties/Any(ep: ep/id eq 'String 0xe02' and contains(ep/value,'bcc@example.com'))", buffer.toString());
     }
 
     public void testDisplayToFilter() {
         ExchangeSession.Condition condition = session.contains("displayto", "recipient@example.com");
         StringBuilder buffer = new StringBuilder();
         condition.appendTo(buffer);
-        assertEquals("singleValueExtendedProperties/Any(ep: ep/id eq 'String 0x0E04' and contains(ep/value,'recipient@example.com'))", buffer.toString());
+        assertEquals("singleValueExtendedProperties/Any(ep: ep/id eq 'String 0xe04' and contains(ep/value,'recipient@example.com'))", buffer.toString());
     }
 
     public void testHeaderIsEqualToFrom() {
@@ -90,7 +90,7 @@ public class TestGraphSearchFilter extends TestCase {
         ExchangeSession.Condition condition = session.headerIsEqualTo("to", "recipient@example.com");
         StringBuilder buffer = new StringBuilder();
         condition.appendTo(buffer);
-        assertEquals("singleValueExtendedProperties/Any(ep: ep/id eq 'String 0x0E04' and contains(ep/value,'recipient@example.com'))", buffer.toString());
+        assertEquals("singleValueExtendedProperties/Any(ep: ep/id eq 'String 0xe04' and contains(ep/value,'recipient@example.com'))", buffer.toString());
     }
 
     public void testHeaderIsEqualToMessageId() {
@@ -117,6 +117,43 @@ public class TestGraphSearchFilter extends TestCase {
         );
         StringBuilder buffer = new StringBuilder();
         condition.appendTo(buffer);
-        assertEquals("(contains(from/emailAddress/address,'sender@example.com') or contains(from/emailAddress/name,'sender@example.com')) Or singleValueExtendedProperties/Any(ep: ep/id eq 'String 0x0E04' and contains(ep/value,'recipient@example.com'))", buffer.toString());
+        assertEquals("(contains(from/emailAddress/address,'sender@example.com') or contains(from/emailAddress/name,'sender@example.com')) Or singleValueExtendedProperties/Any(ep: ep/id eq 'String 0xe04' and contains(ep/value,'recipient@example.com'))", buffer.toString());
+    }
+
+    public void testGraphFieldPropertyTagFormat() {
+        assertEquals("Integer 0xe23", GraphField.getGraphId("imapUid"));
+        assertEquals("Integer 0xe08", GraphField.getGraphId("messageSize"));
+        assertEquals("Binary 0xff9", GraphField.getGraphId("uid"));
+        assertEquals("Integer 0xe07", GraphField.getGraphId("messageFlags"));
+        assertEquals("String 0xe04", GraphField.getGraphId("to"));
+    }
+
+    public void testBuildMessageWithExtendedProperties() throws Exception {
+        org.codehaus.jettison.json.JSONObject json = new org.codehaus.jettison.json.JSONObject();
+        json.put("id", "test-item-id-123");
+        json.put("receivedDateTime", "2026-10-01T12:00:00Z");
+        json.put("isRead", false);
+        json.put("isDraft", false);
+
+        org.codehaus.jettison.json.JSONArray singleValueExtendedProperties = new org.codehaus.jettison.json.JSONArray();
+        singleValueExtendedProperties.put(new org.codehaus.jettison.json.JSONObject()
+                .put("id", "Integer 0xe23")
+                .put("value", "12345"));
+        singleValueExtendedProperties.put(new org.codehaus.jettison.json.JSONObject()
+                .put("id", "Integer 0xe08")
+                .put("value", "54321"));
+        singleValueExtendedProperties.put(new org.codehaus.jettison.json.JSONObject()
+                .put("id", "Binary 0xff9")
+                .put("value", "dummyBinaryUid"));
+        singleValueExtendedProperties.put(new org.codehaus.jettison.json.JSONObject()
+                .put("id", "Integer 0xe07")
+                .put("value", "2"));
+        json.put("singleValueExtendedProperties", singleValueExtendedProperties);
+
+        GraphExchangeSession.Message msg = session.buildMessage(json);
+        assertEquals(12345L, msg.getImapUid());
+        assertEquals(54321, msg.size);
+        assertEquals("dummyBinaryUid", msg.getUid());
+        assertEquals("test-item-id-123", msg.getPermanentId());
     }
 }

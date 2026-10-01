@@ -2491,7 +2491,7 @@ public class GraphExchangeSession extends ExchangeSession {
         }
     }
 
-    private Message buildMessage(JSONObject response) {
+    protected Message buildMessage(JSONObject response) {
         Message message = new Message();
         GraphObject graphResponse = new GraphObject(response);
 
@@ -2518,25 +2518,25 @@ public class GraphExchangeSession extends ExchangeSession {
                 try {
                     JSONObject responseValue = singleValueExtendedProperties.getJSONObject(i);
                     String responseId = responseValue.optString("id");
-                    if (GraphField.getGraphId("imapUid").equals(responseId)) {
+                    if (GraphField.getGraphId("imapUid").equalsIgnoreCase(responseId)) {
                         message.imapUid = responseValue.getLong("value");
-                    } else if (GraphField.getGraphId("messageSize").equals(responseId)) {
+                    } else if (GraphField.getGraphId("messageSize").equalsIgnoreCase(responseId)) {
                         message.size = responseValue.getInt("value");
-                    } else if (GraphField.getGraphId("uid").equals(responseId)) {
+                    } else if (GraphField.getGraphId("uid").equalsIgnoreCase(responseId)) {
                         message.uid = responseValue.getString("value");
-                    } else if (GraphField.getGraphId("permanenturl").equals(responseId)) {
+                    } else if (GraphField.getGraphId("permanenturl").equalsIgnoreCase(responseId)) {
                         message.permanentUrl = responseValue.getString("value"); // always null
-                    } else if (GraphField.getGraphId("lastVerbExecuted").equals(responseId)) {
+                    } else if (GraphField.getGraphId("lastVerbExecuted").equalsIgnoreCase(responseId)) {
                         String lastVerbExecuted = responseValue.getString("value");
                         message.answered = REPLYTOSENDER.equals(lastVerbExecuted) || REPLYTOALL.equals(lastVerbExecuted);
                         message.forwarded = FORWARD.equals(lastVerbExecuted);
-                    } else if (GraphField.getGraphId("contentclass").equals(responseId)) {
+                    } else if (GraphField.getGraphId("contentclass").equalsIgnoreCase(responseId)) {
                         message.contentClass = responseValue.getString("value");
-                    } else if (GraphField.getGraphId("junk").equals(responseId)) {
+                    } else if (GraphField.getGraphId("junk").equalsIgnoreCase(responseId)) {
                         message.junk = "1".equals(responseValue.getString("value"));
-                    } else if (GraphField.getGraphId("flagStatus").equals(responseId)) {
+                    } else if (GraphField.getGraphId("flagStatus").equalsIgnoreCase(responseId)) {
                         message.flagged = "2".equals(responseValue.getString("value"));
-                    } else if (GraphField.getGraphId("deleted").equals(responseId)) {
+                    } else if (GraphField.getGraphId("deleted").equalsIgnoreCase(responseId)) {
                         message.deleted = "1".equals(responseValue.getString("value"));
                     }
 
