@@ -2205,7 +2205,7 @@ public class GraphExchangeSession extends ExchangeSession {
         FOLDER_PROPERTIES.add(GraphField.get("uidNext"));
     }
 
-    protected GraphExchangeSession() {
+    public GraphExchangeSession() {
     }
 
     public GraphExchangeSession(HttpClientAdapter httpClient, O365Token token, String userName) throws IOException {
@@ -2444,7 +2444,7 @@ public class GraphExchangeSession extends ExchangeSession {
         }
     }
 
-    protected class Message extends ExchangeSession.Message {
+    public class Message extends ExchangeSession.Message {
         protected FolderId folderId;
         protected String id;
 

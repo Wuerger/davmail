@@ -1802,6 +1802,24 @@ public abstract class ExchangeSession {
             return keywords;
         }
 
+        /**
+         * Check if message has the specified keyword/category.
+         *
+         * @param keyword keyword value to check
+         * @return true if message has this keyword
+         */
+        public boolean hasKeyword(String keyword) {
+            if (keywords == null || keyword == null || keyword.trim().isEmpty()) {
+                return false;
+            }
+            for (String value : keywords.split(",")) {
+                if (value.trim().equalsIgnoreCase(keyword.trim())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
     }
 
     /**

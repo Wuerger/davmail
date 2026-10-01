@@ -69,6 +69,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.ArrayDeque;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -93,6 +94,11 @@ public class ImapConnection extends AbstractConnection {
      */
     public ImapConnection(Socket clientSocket) {
         super(ImapConnection.class.getSimpleName(), clientSocket, "UTF-8");
+    }
+
+    public ImapConnection(ExchangeSession session) {
+        super(ImapConnection.class.getSimpleName(), new Socket());
+        this.session = session;
     }
 
     @Override
@@ -1125,18 +1131,18 @@ public class ImapConnection extends AbstractConnection {
     protected ExchangeSession.Condition buildConditions(SearchConditions conditions, ImapTokenizer tokens) throws IOException {
         ExchangeSession.MultiCondition condition = null;
         while (tokens.hasMoreTokens()) {
-            String token = tokens.nextQuotedToken().toUpperCase();
+            String token = tokens.nextQuotedToken();
             if (token.startsWith("(") && token.endsWith(")")) {
                 // quoted search param
                 if (condition == null) {
                     condition = session.and();
                 }
                 condition.add(buildConditions(conditions, new ImapTokenizer(token.substring(1, token.length() - 1))));
-            } else if ("OR".equals(token)) {
+            } else if ("OR".equalsIgnoreCase(token)) {
                 condition = session.or();
-            } else if (token.startsWith("OR ")) {
+            } else if (token.toUpperCase().startsWith("OR ")) {
                 condition = appendOrSearchParams(token, conditions);
-            } else if ("CHARSET".equals(token)) {
+            } else if ("CHARSET".equalsIgnoreCase(token)) {
                 String charset = tokens.nextToken().toUpperCase();
                 if (!("ASCII".equals(charset) || "UTF-8".equals(charset) || "US-ASCII".equals(charset))) {
                     throw new IOException("Unsupported charset " + charset);
@@ -1145,7 +1151,7 @@ public class ImapConnection extends AbstractConnection {
                 if (condition == null) {
                     condition = session.and();
                 }
-                condition.add(appendSearchParam(tokens, token, conditions));
+                condition.add(appendSearchParam(tokens, token.toUpperCase(), conditions));
             }
         }
         return condition;
@@ -1180,11 +1186,30 @@ public class ImapConnection extends AbstractConnection {
                     && (conditions.draft == null || message.draft == conditions.draft)
                     // range iterator: include messages available in search result
                     && (localMessagesUidList == null || localMessagesUidList.contains(message.getImapUid()))
-                    && isNotExcluded(conditions.notUidRange, message.getImapUid())) {
+                    && isNotExcluded(conditions.notUidRange, message.getImapUid())
+                    && matchesKeywords(conditions, message)) {
                 uidList.add(message.getImapUid());
             }
         }
         return uidList;
+    }
+
+    protected boolean matchesKeywords(SearchConditions conditions, ExchangeSession.Message message) {
+        if (conditions.keywords != null) {
+            for (String keyword : conditions.keywords) {
+                if (!message.hasKeyword(keyword)) {
+                    return false;
+                }
+            }
+        }
+        if (conditions.unkeywords != null) {
+            for (String unkeyword : conditions.unkeywords) {
+                if (message.hasKeyword(unkeyword)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**
@@ -1514,6 +1539,26 @@ public class ImapConnection extends AbstractConnection {
         String indexRange;
         String uidRange;
         String notUidRange;
+        Set<String> keywords;
+        Set<String> unkeywords;
+
+        public void addKeyword(String keyword) {
+            if (keyword != null) {
+                if (keywords == null) {
+                    keywords = new HashSet<>();
+                }
+                keywords.add(keyword);
+            }
+        }
+
+        public void addUnkeyword(String keyword) {
+            if (keyword != null) {
+                if (unkeywords == null) {
+                    unkeywords = new HashSet<>();
+                }
+                unkeywords.add(keyword);
+            }
+        }
     }
 
     protected ExchangeSession.MultiCondition appendOrSearchParams(String token, SearchConditions conditions) throws IOException {
@@ -1528,12 +1573,63 @@ public class ImapConnection extends AbstractConnection {
     }
 
     protected ExchangeSession.Condition appendNotSearchParams(String token, SearchConditions conditions) throws IOException {
+        SearchConditions notConditions = new SearchConditions();
         ImapTokenizer innerTokens = new ImapTokenizer(token);
-        ExchangeSession.Condition cond = buildConditions(conditions, innerTokens);
+        ExchangeSession.Condition cond = buildConditions(notConditions, innerTokens);
+        if (notConditions.flagged != null) {
+            conditions.flagged = !notConditions.flagged;
+        }
+        if (notConditions.answered != null) {
+            conditions.answered = !notConditions.answered;
+        }
+        if (notConditions.draft != null) {
+            conditions.draft = !notConditions.draft;
+        }
+        if (notConditions.keywords != null) {
+            for (String kw : notConditions.keywords) {
+                conditions.addUnkeyword(kw);
+            }
+        }
+        if (notConditions.unkeywords != null) {
+            for (String unkw : notConditions.unkeywords) {
+                conditions.addKeyword(unkw);
+            }
+        }
+        cond = extractAndRemoveKeywordConditions(cond, conditions);
         if (cond == null || cond.isEmpty()) {
             return null;
         }
         return session.not(cond);
+    }
+
+    private ExchangeSession.Condition extractAndRemoveKeywordConditions(ExchangeSession.Condition condition, SearchConditions conditions) {
+        if (condition == null) {
+            return null;
+        }
+        if (condition instanceof ExchangeSession.AttributeCondition) {
+            ExchangeSession.AttributeCondition attributeCondition = (ExchangeSession.AttributeCondition) condition;
+            if ("keywords".equals(attributeCondition.getAttributeName())) {
+                conditions.addUnkeyword(attributeCondition.getValue());
+                return null;
+            }
+            return condition;
+        }
+        if (condition instanceof ExchangeSession.MultiCondition) {
+            ExchangeSession.MultiCondition multiCondition = (ExchangeSession.MultiCondition) condition;
+            Iterator<ExchangeSession.Condition> it = multiCondition.getConditions().iterator();
+            while (it.hasNext()) {
+                ExchangeSession.Condition child = it.next();
+                ExchangeSession.Condition filteredChild = extractAndRemoveKeywordConditions(child, conditions);
+                if (filteredChild == null || filteredChild.isEmpty()) {
+                    it.remove();
+                }
+            }
+            if (multiCondition.isEmpty()) {
+                return null;
+            }
+            return multiCondition;
+        }
+        return condition;
     }
 
     protected ExchangeSession.Condition appendSearchParam(ImapTokenizer tokens, String token, SearchConditions conditions) throws IOException {
@@ -1542,9 +1638,16 @@ public class ImapConnection extends AbstractConnection {
             if ("DELETED".equals(nextToken)) {
                 // conditions.deleted = Boolean.FALSE;
                 return session.isNull("deleted");
+            } else if ("KEYWORD".equals(nextToken)) {
+                conditions.addUnkeyword(session.convertFlagToKeyword(tokens.nextToken()));
+                return null;
+            } else if ("UNKEYWORD".equals(nextToken)) {
+                String keyword = session.convertFlagToKeyword(tokens.nextToken());
+                conditions.addKeyword(keyword);
+                return session.isEqualTo("keywords", keyword);
             } else if ("FROM".equals(nextToken) || "TO".equals(nextToken) || "CC".equals(nextToken) || "BCC".equals(nextToken)
                     || "SUBJECT".equals(nextToken) || "BODY".equals(nextToken) || "TEXT".equals(nextToken)
-                    || "KEYWORD".equals(nextToken) || "UNKEYWORD".equals(nextToken) || "LARGER".equals(nextToken) || "SMALLER".equals(nextToken)) {
+                    || "LARGER".equals(nextToken) || "SMALLER".equals(nextToken)) {
                 return appendNotSearchParams(nextToken + " " + tokens.nextToken(), conditions);
             } else if ("UID".equals(nextToken)) {
                 conditions.notUidRange = tokens.nextToken();
@@ -1565,9 +1668,12 @@ public class ImapConnection extends AbstractConnection {
                     session.contains("to", value),
                     session.contains("cc", value));
         } else if ("KEYWORD".equals(token)) {
-            return session.isEqualTo("keywords", session.convertFlagToKeyword(tokens.nextToken()));
+            String keyword = session.convertFlagToKeyword(tokens.nextToken());
+            conditions.addKeyword(keyword);
+            return session.isEqualTo("keywords", keyword);
         } else if ("UNKEYWORD".equals(token)) {
-            return session.not(session.isEqualTo("keywords", session.convertFlagToKeyword(tokens.nextToken())));
+            conditions.addUnkeyword(session.convertFlagToKeyword(tokens.nextToken()));
+            return null;
         } else if ("FROM".equals(token)) {
             return session.contains("from", tokens.nextToken());
         } else if ("TO".equals(token)) {
